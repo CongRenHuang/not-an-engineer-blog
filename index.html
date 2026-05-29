@@ -349,10 +349,12 @@ img { max-width: 100%; display: block; }
 
 .lead-image {
   width: 100%;
-  max-width: 740px;
+  height: auto;
   border-radius: 12px;
   margin: 0 0 28px;
   box-shadow: 0 4px 24px rgba(11,29,46,0.12);
+  aspect-ratio: 20/10.5;
+  object-fit: cover;
 }
 
 .article-body strong {
@@ -916,7 +918,7 @@ img { max-width: 100%; display: block; }
 <!-- ====== ARTICLE ====== -->
 <article class="article-body">
 
-  <img src="hero-banner.jpg" alt="Claude Opus 4.8 Dynamic Workflows 技術解析" class="lead-image" width="1200" height="630" loading="lazy">
+  <img src="hero-banner.jpg" alt="Claude Opus 4.8 Dynamic Workflows 技術解析" class="lead-image" loading="lazy">
 
   <p class="lead">
     Anthropic 於 2026-05-28 推出 Opus 4.8（<code>claude-opus-4-8</code>）。這篇文章從架構工程師的視角，
