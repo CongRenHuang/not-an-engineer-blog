@@ -176,14 +176,31 @@ img { max-width: 100%; display: block; }
    ======================================== */
 .hero {
   background: linear-gradient(175deg, var(--brand-900) 0%, var(--brand-850) 40%, var(--brand-800) 100%);
-  background-image:
-    linear-gradient(175deg, rgba(11,29,46,0.85) 0%, rgba(14,38,57,0.75) 40%, rgba(18,47,70,0.80) 100%),
-    url('hero-banner.jpg');
-  background-size: cover;
-  background-position: center;
   padding: 72px 24px 56px;
   position: relative;
   overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px;
+  right: -120px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(41,128,185,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -100px;
+  left: -80px;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(26,188,156,0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .hero-inner {
@@ -328,6 +345,14 @@ img { max-width: 100%; display: block; }
   color: var(--ink-secondary);
   line-height: 1.8;
   margin-bottom: 28px;
+}
+
+.lead-image {
+  width: 100%;
+  max-width: 740px;
+  border-radius: 12px;
+  margin: 0 0 28px;
+  box-shadow: 0 4px 24px rgba(11,29,46,0.12);
 }
 
 .article-body strong {
@@ -890,6 +915,8 @@ img { max-width: 100%; display: block; }
 
 <!-- ====== ARTICLE ====== -->
 <article class="article-body">
+
+  <img src="hero-banner.jpg" alt="Claude Opus 4.8 Dynamic Workflows 技術解析" class="lead-image" width="1200" height="630" loading="lazy">
 
   <p class="lead">
     Anthropic 於 2026-05-28 推出 Opus 4.8（<code>claude-opus-4-8</code>）。這篇文章從架構工程師的視角，
