@@ -298,6 +298,58 @@ img { max-width: 100%; display: block; }
 }
 
 /* ========================================
+   TABLE OF CONTENTS
+   ======================================== */
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 24px;
+  margin: 28px 0;
+}
+
+.toc-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 12px;
+}
+
+.toc-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  list-style: none;
+}
+
+.toc-list li {
+  display: flex;
+  align-items: center;
+}
+
+.toc-list a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--brand-600);
+  background: var(--brand-100);
+  border: 1px solid var(--brand-200);
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toc-list a:hover {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
+}
+
+/* ========================================
    ARTICLE BODY
    ======================================== */
 .article-body {
@@ -915,6 +967,21 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 
+<!-- ====== TABLE OF CONTENTS ====== -->
+<div class="article-body">
+  <nav class="toc" aria-label="文章目錄">
+    <div class="toc-title">目錄</div>
+    <ul class="toc-list">
+      <li><a href="#s01">01 Opus 4.8 核心升級</a></li>
+      <li><a href="#s02">02 Fast Mode</a></li>
+      <li><a href="#s03">03 Claude Code 自主能力</a></li>
+      <li><a href="#s04">04 Dynamic Workflows</a></li>
+      <li><a href="#s05">05 整體戰略解讀</a></li>
+      <li><a href="#faq">FAQ 常見問題</a></li>
+    </ul>
+  </nav>
+</div>
+
 <!-- ====== ARTICLE ====== -->
 <article class="article-body">
 
@@ -927,7 +994,7 @@ img { max-width: 100%; display: block; }
   </p>
 
   <!-- ====== Section 1: Opus 4.8 核心升級 ====== -->
-  <h2><span class="num">01</span>Opus 4.8 核心升級</h2>
+  <h2 id="s01"><span class="num">01</span>Opus 4.8 核心升級</h2>
 
   <div class="stat-strip four-col">
     <div class="stat-item">
@@ -992,7 +1059,7 @@ img { max-width: 100%; display: block; }
   <hr>
 
   <!-- ====== Section 2: Fast Mode ====== -->
-  <h2><span class="num">02</span>Fast Mode 快速模式</h2>
+  <h2 id="s02"><span class="num">02</span>Fast Mode 快速模式</h2>
 
   <!-- Why -->
   <div class="sub-header why">
@@ -1054,7 +1121,7 @@ img { max-width: 100%; display: block; }
   <hr>
 
   <!-- ====== Section 3: Claude Code 自主能力 ====== -->
-  <h2><span class="num">03</span>Claude Code 中的 Opus 4.8 自主能力</h2>
+  <h2 id="s03"><span class="num">03</span>Claude Code 中的 Opus 4.8 自主能力</h2>
 
   <!-- Why -->
   <div class="sub-header why">
@@ -1089,7 +1156,7 @@ img { max-width: 100%; display: block; }
   <hr>
 
   <!-- ====== Section 4: Dynamic Workflows ====== -->
-  <h2><span class="num">04</span>Dynamic Workflows — 本次最重要的架構變化</h2>
+  <h2 id="s04"><span class="num">04</span>Dynamic Workflows — 本次最重要的架構變化</h2>
 
   <!-- Why -->
   <div class="sub-header why">
@@ -1236,7 +1303,7 @@ img { max-width: 100%; display: block; }
   <hr>
 
   <!-- ====== Section 5: 整體戰略解讀 ====== -->
-  <h2><span class="num">05</span>整體戰略解讀</h2>
+  <h2 id="s05"><span class="num">05</span>整體戰略解讀</h2>
 
   <p>
     Anthropic 同步預告 Mythos 系列模型將在「未來數週內」更廣泛釋出。這意味著 Opus 4.8 的定位更像是<strong>銜接 Mythos 之前的過渡強化版</strong>——而非本世代的終點。
@@ -1249,7 +1316,7 @@ img { max-width: 100%; display: block; }
   <hr>
 
   <!-- ====== FAQ ====== -->
-  <h2><span class="num">FAQ</span>常見問題</h2>
+  <h2 id="faq"><span class="num">FAQ</span>常見問題</h2>
 
   <div class="qa-section">
 
