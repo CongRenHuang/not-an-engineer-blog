@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Opus 4.8 與 Dynamic Workflows 技術解析 — AI Architecture Blog</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ========================================
+   DESIGN TOKENS
+   ======================================== */
+:root {
+  --brand-900: #0B1D2E;
+  --brand-850: #0E2639;
+  --brand-800: #122F46;
+  --brand-700: #1A4568;
+  --brand-600: #1E5F8A;
+  --brand-500: #2980B9;
+  --brand-400: #5DADE2;
+  --brand-300: #A9D4F0;
+  --brand-200: #D6EAF8;
+  --brand-100: #EBF5FB;
+
+  --accent-amber: #E67E22;
+  --accent-amber-light: #FDEBD0;
+  --accent-amber-bg: #FEF6EC;
+  --accent-emerald: #1ABC9C;
+  --accent-emerald-light: #D1F2EB;
+  --accent-emerald-bg: #EAFAF6;
+  --accent-red: #C0392B;
+  --accent-red-light: #FADBD8;
+  --accent-red-bg: #FDF2F0;
+
+  --ink-primary: #0E1A26;
+  --ink-secondary: #4A6274;
+  --ink-muted: #7F95A5;
+  --ink-inverse: #FFFFFF;
+
+  --border: #CFE0EA;
+  --border-light: #E4EDF3;
+  --surface: #FFFFFF;
+  --page-bg: #F4F7FA;
+
+  --font-body: 'Noto Sans TC', 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Menlo', monospace;
+  --font-display: 'Noto Sans TC', sans-serif;
+
+  --content-max: 740px;
+  --nav-height: 60px;
+}
+
+/* ========================================
+   RESET & BASE
+   ======================================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink-primary);
+  background: var(--page-bg);
+  line-height: 1.8;
+}
+
+::selection {
+  background: var(--brand-300);
+  color: var(--brand-900);
+}
+
+a {
+  color: var(--brand-500);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+a:hover { color: var(--brand-400); }
+
+img { max-width: 100%; display: block; }
+
+/* ========================================
+   NAVIGATION
+   ======================================== */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--brand-900);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px);
+}
+
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-inverse);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+}
+
+.nav-brand .logo-mark {
+  width: 28px;
+  height: 28px;
+  background: var(--brand-500);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.08);
+}
+
+@media (max-width: 640px) {
+  .nav-links { display: none; }
+}
+
+/* ========================================
+   HERO
+   ======================================== */
+.hero {
+  background: linear-gradient(175deg, var(--brand-900) 0%, var(--brand-850) 40%, var(--brand-800) 100%);
+  padding: 72px 24px 56px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px;
+  right: -120px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(41,128,185,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -100px;
+  left: -80px;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(26,188,156,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.hero-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--brand-400);
+  background: rgba(93,173,226,0.1);
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(93,173,226,0.15);
+}
+
+.hero-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 900;
+  color: var(--ink-inverse);
+  line-height: 1.25;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.hero-subtitle {
+  font-size: 17px;
+  color: rgba(255,255,255,0.55);
+  line-height: 1.7;
+  max-width: 580px;
+}
+
+.hero-subtitle code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: rgba(255,255,255,0.08);
+  color: var(--brand-300);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.hero-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.hero-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+}
+
+.hero-author-info .name {
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  font-size: 14px;
+}
+
+.hero-author-info .role {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+
+/* ========================================
+   ARTICLE BODY
+   ======================================== */
+.article-body {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.article-body h2 {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--ink-primary);
+  margin: 56px 0 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--brand-500);
+  line-height: 1.35;
+  letter-spacing: -0.3px;
+}
+
+.article-body h2 .num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-500);
+  margin-right: 8px;
+  vertical-align: 2px;
+}
+
+.article-body h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--brand-800);
+  margin: 36px 0 12px;
+}
+
+.article-body p {
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--ink-primary);
+  margin-bottom: 20px;
+}
+
+.article-body p.lead {
+  font-size: 18px;
+  color: var(--ink-secondary);
+  line-height: 1.8;
+  margin-bottom: 28px;
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.article-body em {
+  font-style: italic;
+  color: var(--ink-secondary);
+}
+
+.article-body code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+}
+
+.article-body blockquote {
+  margin: 28px 0;
+  padding: 20px 24px;
+  background: var(--brand-100);
+  border-left: 4px solid var(--brand-500);
+  border-radius: 0 10px 10px 0;
+  font-size: 16px;
+  color: var(--brand-800);
+  line-height: 1.75;
+}
+
+.article-body blockquote p { margin-bottom: 0; color: inherit; }
+
+.article-body hr {
+  border: none;
+  height: 1px;
+  background: var(--border);
+  margin: 48px 0;
+}
+
+.article-body a {
+  color: var(--brand-500);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.article-body a:hover {
+  border-bottom-color: var(--brand-400);
+}
+
+/* ========================================
+   DATA TABLE
+   ======================================== */
+.data-table-wrap {
+  margin: 28px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.data-table thead {
+  background: var(--brand-900);
+}
+
+.data-table thead th {
+  padding: 12px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font-mono);
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.1s;
+}
+
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--brand-100); }
+
+.data-table td {
+  padding: 14px 20px;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.data-table td:first-child {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  width: 100px;
+}
+
+/* ========================================
+   CALLOUT BOXES
+   ======================================== */
+.callout {
+  margin: 28px 0;
+  padding: 20px 24px;
+  border-radius: 10px;
+  border-left: 4px solid;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.callout-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.callout p { margin-bottom: 0; }
+
+.callout.warning {
+  background: var(--accent-amber-bg);
+  border-color: var(--accent-amber);
+}
+.callout.warning .callout-title { color: #A85E10; }
+
+.callout.insight {
+  background: var(--brand-100);
+  border-color: var(--brand-500);
+}
+.callout.insight .callout-title { color: var(--brand-600); }
+
+.callout.danger {
+  background: var(--accent-red-bg);
+  border-color: var(--accent-red);
+}
+.callout.danger .callout-title { color: var(--accent-red); }
+
+.callout.success {
+  background: var(--accent-emerald-bg);
+  border-color: var(--accent-emerald);
+}
+.callout.success .callout-title { color: #148F77; }
+
+/* ========================================
+   STAT STRIP
+   ======================================== */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.stat-strip.four-col {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 540px) {
+  .stat-strip { grid-template-columns: 1fr 1fr; }
+  .stat-strip.four-col { grid-template-columns: 1fr 1fr; }
+}
+
+.stat-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.sv-amber { color: var(--accent-amber); }
+.sv-blue  { color: var(--brand-600); }
+.sv-emerald { color: var(--accent-emerald); }
+.sv-red   { color: var(--accent-red); }
+
+/* ========================================
+   SUB-SECTION HEADERS (Why / How / What's Next)
+   ======================================== */
+.sub-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 32px 0 14px;
+}
+
+.sub-header .icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.sub-header.why .icon {
+  background: var(--accent-amber-bg);
+  border: 1px solid var(--accent-amber-light);
+}
+
+.sub-header.how .icon {
+  background: var(--brand-100);
+  border: 1px solid var(--brand-200);
+}
+
+.sub-header.next .icon {
+  background: var(--accent-emerald-bg);
+  border: 1px solid var(--accent-emerald-light);
+}
+
+.sub-header h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.sub-header.why h3 { color: #A85E10; }
+.sub-header.how h3 { color: var(--brand-700); }
+.sub-header.next h3 { color: #148F77; }
+
+/* ========================================
+   SCENARIO TABLE
+   ======================================== */
+.scenario-table-wrap {
+  margin: 28px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.scenario-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.scenario-table thead {
+  background: var(--brand-900);
+}
+
+.scenario-table thead th {
+  padding: 12px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font-mono);
+}
+
+.scenario-table tbody tr {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.scenario-table tbody tr:last-child { border-bottom: none; }
+.scenario-table tbody tr:hover { background: var(--brand-100); }
+
+.scenario-table td {
+  padding: 14px 20px;
+  line-height: 1.6;
+  vertical-align: top;
+}
+
+/* ========================================
+   WORKFLOW STEPS
+   ======================================== */
+.workflow-steps {
+  margin: 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workflow-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  transition: border-color 0.15s;
+}
+
+.workflow-step:hover {
+  border-color: var(--brand-300);
+}
+
+.step-num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-inverse);
+  background: var(--brand-500);
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.step-content h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-primary);
+  margin-bottom: 4px;
+}
+
+.step-content p {
+  font-size: 14px;
+  color: var(--ink-secondary);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ========================================
+   ACTION ITEMS
+   ======================================== */
+.action-list {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.action-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.badge-now {
+  background: var(--accent-red-light);
+  color: var(--accent-red);
+}
+
+.badge-short {
+  background: var(--accent-amber-light);
+  color: #A85E10;
+}
+
+.badge-eval {
+  background: var(--brand-100);
+  color: var(--brand-600);
+}
+
+/* ========================================
+   Q&A SECTION
+   ======================================== */
+.qa-section {
+  margin: 56px 0 0;
+}
+
+.qa-item {
+  margin-bottom: 28px;
+}
+
+.qa-q {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink-primary);
+  margin-bottom: 8px;
+  padding-left: 20px;
+  position: relative;
+}
+
+.qa-q::before {
+  content: 'Q';
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--brand-500);
+}
+
+.qa-a {
+  font-size: 15px;
+  color: var(--ink-secondary);
+  line-height: 1.8;
+  padding-left: 20px;
+}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+.site-footer {
+  background: var(--brand-900);
+  padding: 40px 24px;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-copy {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.footer-links a {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  font-weight: 500;
+}
+
+.footer-links a:hover { color: rgba(255,255,255,0.7); }
+
+/* ========================================
+   SHARE BAR
+   ======================================== */
+.share-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 48px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.share-bar span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.share-btn:hover {
+  border-color: var(--brand-400);
+  color: var(--brand-500);
+  background: var(--brand-100);
+}
+
+/* ========================================
+   UTILITY
+   ======================================== */
+.mono { font-family: var(--font-mono); }
+.text-muted { color: var(--ink-muted); }
+.text-sm { font-size: 14px; }
+.mt-0 { margin-top: 0; }
+
+@media (max-width: 640px) {
+  .hero { padding: 48px 20px 40px; }
+  .article-body { padding: 32px 20px 60px; }
+  .article-body h2 { font-size: 20px; margin-top: 40px; }
+  .footer-inner { flex-direction: column; gap: 12px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====== NAVIGATION ====== -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <span class="logo-mark">D</span>
+      AI Architecture Blog
+    </a>
+    <ul class="nav-links">
+      <li><a href="#">首頁</a></li>
+      <li><a href="#">分類</a></li>
+      <li><a href="#">Archive</a></li>
+      <li><a href="#">Q&A</a></li>
+      <li><a href="#">About</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ====== HERO ====== -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-meta">
+      <span class="hero-tag">技術解析</span>
+      <span class="hero-date">2026-05-28</span>
+    </div>
+    <h1>Claude Opus 4.8 與 Dynamic Workflows<br>技術解析</h1>
+    <p class="hero-subtitle">
+      Opus 4.8 不只是 benchmark 數字的更新——Dynamic Workflows 引入的多代理對抗驗證架構，
+      才是這次發布真正改變遊戲規則的部分。<code>claude-opus-4-8</code> 完整拆解。
+    </p>
+    <div class="hero-author">
+      <div class="hero-avatar">D</div>
+      <div class="hero-author-info">
+        <div class="name">Dennis Huang</div>
+        <div class="role">資深軟體架構工程師</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ====== ARTICLE ====== -->
+<article class="article-body">
+
+  <p class="lead">
+    Anthropic 於 2026-05-28 推出 Opus 4.8（<code>claude-opus-4-8</code>）。這篇文章從架構工程師的視角，
+    拆解 Opus 4.8 的核心升級、Fast Mode 變化、自主能力提升，以及本次發布最重要的架構變化——Dynamic Workflows。
+    每個段落保留 Why → How → What's Next 的三段結構，方便直接對應到你的技術決策。
+  </p>
+
+  <!-- ====== Section 1: Opus 4.8 核心升級 ====== -->
+  <h2><span class="num">01</span>Opus 4.8 核心升級</h2>
+
+  <div class="stat-strip four-col">
+    <div class="stat-item">
+      <div class="stat-value sv-blue">69.2%</div>
+      <div class="stat-label">SWE-bench Pro</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value sv-emerald">96.7%</div>
+      <div class="stat-label">USAMO 2026</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value sv-amber">68.1%</div>
+      <div class="stat-label">1M Token 檢索</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value sv-red">4×</div>
+      <div class="stat-label">缺陷漏報率降幅</div>
+    </div>
+  </div>
+
+  <!-- Why -->
+  <div class="sub-header why">
+    <div class="icon">⚡</div>
+    <h3>Why — 為什麼重要</h3>
+  </div>
+
+  <p>
+    Opus 4.8 是 Opus 4.7 的直接升級，定價維持 <code>$5 / $25 per MTok</code>（input / output），Anthropic 將其定位為當前一般可存取的最強模型。相較於前代，Opus 4.8 對自身生成程式碼中缺陷的漏報率降低了約四倍，同時更少出現無根據的聲明——這是「更誠實回報自身進度」的量化依據。
+  </p>
+
+  <p>
+    在程式碼能力方面，SWE-bench Pro 從 4.7 的 64.3% 提升至 69.2%；數學推理能力大幅躍升，USAMO 2026 達到 96.7%（4.7 僅 69.3%）；長脈絡檢索在 1M token 場景下達 68.1%（4.7 僅 40.3%）。
+  </p>
+
+  <!-- How -->
+  <div class="sub-header how">
+    <div class="icon">🔧</div>
+    <h3>How — 如何運作</h3>
+  </div>
+
+  <p>
+    三個核心改進方向：更敏銳的判斷力（sharper judgment）、更誠實的進度回報（honesty about own progress）、更長時間的自主工作能力。Anthropic 此次並未在 multimodal 視覺基準上大幅投入，重點明確集中在 agentic coding、computer use 與對齊性（alignment）的提升。
+  </p>
+
+  <!-- What's Next -->
+  <div class="sub-header next">
+    <div class="icon">✅</div>
+    <h3>What's Next — 下一步行動</h3>
+  </div>
+
+  <div class="action-list">
+    <div class="action-item">
+      <span class="action-badge badge-eval">評估</span>
+      <span>若系統需要長時間的 API 代理呼叫，可評估切換 LiteLLM 路由至 <code>claude-opus-4-8</code> 作為備援提供者。</span>
+    </div>
+    <div class="action-item">
+      <span class="action-badge badge-short">短期</span>
+      <span>誠實度提升（漏報缺陷 ↓4×）對醫療 AI 場景尤為關鍵，可作為機構銷售的信任論述素材。</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ====== Section 2: Fast Mode ====== -->
+  <h2><span class="num">02</span>Fast Mode 快速模式</h2>
+
+  <!-- Why -->
+  <div class="sub-header why">
+    <div class="icon">⚡</div>
+    <h3>Why — 為什麼重要</h3>
+  </div>
+
+  <p>
+    Fast Mode 並非不同的模型，而是 Claude Opus 的高速配置，在相同品質下達到 <strong>2.5 倍</strong>的輸出 token 速度。先前 Opus 4.7 / 4.6 的 Fast Mode 定價為 $30 / $150 per MTok，Opus 4.8 大幅降至三分之一——實際定價 <code>$10 / $50 per MTok</code>。
+  </p>
+
+  <!-- How -->
+  <div class="sub-header how">
+    <div class="icon">🔧</div>
+    <h3>How — 如何運作</h3>
+  </div>
+
+  <p>
+    在 Claude Code 中以 <code>/fast</code> 指令切換，介面以 ↯ 圖示標示啟用狀態。需消耗 usage credits，適合快速迭代與即時除錯場景。
+  </p>
+
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>模式</th>
+          <th>Input / MTok</th>
+          <th>Output / MTok</th>
+          <th>速度</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Standard</td>
+          <td>$5</td>
+          <td>$25</td>
+          <td>1×</td>
+        </tr>
+        <tr>
+          <td>Fast Mode</td>
+          <td>$10</td>
+          <td>$50</td>
+          <td>2.5×</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- What's Next -->
+  <div class="sub-header next">
+    <div class="icon">✅</div>
+    <h3>What's Next — 下一步行動</h3>
+  </div>
+
+  <p>
+    開發階段的快速迭代場景（如 TypeScript 組件調試），Fast Mode 的 cost-performance 比值值得重新評估——是否優於直接使用 Sonnet 4.6。
+  </p>
+
+  <hr>
+
+  <!-- ====== Section 3: Claude Code 自主能力 ====== -->
+  <h2><span class="num">03</span>Claude Code 中的 Opus 4.8 自主能力</h2>
+
+  <!-- Why -->
+  <div class="sub-header why">
+    <div class="icon">⚡</div>
+    <h3>Why — 為什麼重要</h3>
+  </div>
+
+  <p>
+    Opus 4.8 在 agentic coding、reasoning、財務分析與知識工作等基準上均超越競爭對手。核心價值主張：<strong>減少人工中斷點（fewer checkpoints）</strong>，讓工程師可以把注意力移到其他事務。
+  </p>
+
+  <!-- How -->
+  <div class="sub-header how">
+    <div class="icon">🔧</div>
+    <h3>How — 如何運作</h3>
+  </div>
+
+  <p>
+    模型在長時間 session 中能持續追蹤 repo 進度，自主決定工具呼叫順序，且在誤判時能自我糾正——而非依賴使用者提示。這代表工程師可以交付更大粒度的任務，再回來審核結果即可。
+  </p>
+
+  <!-- What's Next -->
+  <div class="sub-header next">
+    <div class="icon">✅</div>
+    <h3>What's Next — 下一步行動</h3>
+  </div>
+
+  <p>
+    可將批次腳本生成（scenario generation）交由 Opus 4.8 長時間獨立執行，再由自己進行品質審核，維持人工判斷層作為最終把關。
+  </p>
+
+  <hr>
+
+  <!-- ====== Section 4: Dynamic Workflows ====== -->
+  <h2><span class="num">04</span>Dynamic Workflows — 本次最重要的架構變化</h2>
+
+  <!-- Why -->
+  <div class="sub-header why">
+    <div class="icon">⚡</div>
+    <h3>Why — 為什麼重要</h3>
+  </div>
+
+  <p>
+    某些問題對單一代理來說太大，尤其在複雜的遺留程式碼庫：跨整個服務的 bug hunt、觸及數百個檔案的遷移、需要從多角度驗證的高風險計劃。Dynamic Workflows 正是為此而生的多代理協作架構。
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-title">💡 實際案例：Bun 從 Zig 移植到 Rust</div>
+    <p>99.8% 測試通過率、約 75 萬行 Rust 程式碼、從第一個 commit 到 merge 歷時 11 天。需注意：此移植結果目前尚未上線生產環境（not yet in production），是評估功能成熟度的關鍵資訊。</p>
+  </div>
+
+  <!-- How -->
+  <div class="sub-header how">
+    <div class="icon">🔧</div>
+    <h3>How — 技術機制</h3>
+  </div>
+
+  <p>
+    Dynamic Workflows 的運作有明確的限制與機制邊界：
+  </p>
+
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>參數</th>
+          <th>限制</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>並行代理</td>
+          <td>最多同時 16 個</td>
+        </tr>
+        <tr>
+          <td>單次 Run 上限</td>
+          <td>1,000 個代理</td>
+        </tr>
+        <tr>
+          <td>Orchestration Script</td>
+          <td>不能直接存取 filesystem 或 shell，只有子代理可以</td>
+        </tr>
+        <tr>
+          <td>中間結果</td>
+          <td>存於 script 變數，不佔用 context window</td>
+        </tr>
+        <tr>
+          <td>中斷恢復</td>
+          <td>進度自動儲存，同一 session 內可從斷點恢復</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Bun 移植的三階段工作流範例</h3>
+
+  <div class="workflow-steps">
+    <div class="workflow-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Lifetime Mapping</h4>
+        <p>為 Zig 程式碼庫中每個 struct 欄位映射正確的 Rust lifetime。</p>
+      </div>
+    </div>
+    <div class="workflow-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Parallel Write + Review</h4>
+        <p>數百個代理並行撰寫每個 <code>.rs</code> 檔案，每個檔案各有兩個 reviewer 代理進行交叉驗證。</p>
+      </div>
+    </div>
+    <div class="workflow-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Fix Loop</h4>
+        <p>持續驅動 build 與 test suite 直到全部通過；隔夜 workflow 處理不必要的資料複製並自動開 PR。</p>
+      </div>
+    </div>
+  </div>
+
+  <blockquote>
+    <p>這本質上是一個<strong>多代理對抗驗證（adversarial multi-agent verification）</strong>系統，而非單純的平行化。與「一個代理出題、一個代理挑錯」的模式高度同構。</p>
+  </blockquote>
+
+  <h3>適用場景矩陣</h3>
+
+  <div class="scenario-table-wrap">
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>場景</th>
+          <th>適合工具</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2–3 步驟、可在單一對話完成</td>
+          <td>Subagents / Skills</td>
+        </tr>
+        <tr>
+          <td>任務計劃需寫成程式碼、可重複、可擴展至數百個獨立操作</td>
+          <td>Dynamic Workflows</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout danger">
+    <div class="callout-title">🔴 安全性提醒——不可忽略</div>
+    <p>Opus 4.8 System Card 指出，在 agentic prompt injection 的強健性方面反而略遜於 Opus 4.7：Gray Swan agent red-teaming 攻擊成功率為 9.6%（4.7 為 6.0%）。在 agentic pipeline 中接收不受信任輸入時，應重新審視 sandbox 隔離策略。</p>
+  </div>
+
+  <!-- What's Next -->
+  <div class="sub-header next">
+    <div class="icon">✅</div>
+    <h3>What's Next — 下一步行動</h3>
+  </div>
+
+  <div class="action-list">
+    <div class="action-item">
+      <span class="action-badge badge-now">立即</span>
+      <span>確認 Claude Code 已更新至支援 Dynamic Workflows 的版本（目前為 Research Preview，需手動啟用）。</span>
+    </div>
+    <div class="action-item">
+      <span class="action-badge badge-short">短期</span>
+      <span>設計「出題代理 + 品質審核代理」的雙代理驗證架構原型，與 Dynamic Workflows 的對抗驗證模式邏輯一致。</span>
+    </div>
+    <div class="action-item">
+      <span class="action-badge badge-eval">評估</span>
+      <span>本地端若要運行類似的多代理 orchestration，vLLM 的並行請求瓶頸是主要限制，需先測量 concurrent request throughput。</span>
+    </div>
+  </div>
+
+  <div class="callout success">
+    <div class="callout-title">✅ 對機構銷售的含意</div>
+    <p>Dynamic Workflows 的「可稽核、可恢復、中間結果可檢查」特性，與醫療訓練場景的合規審計需求高度契合——這是一個可以直接轉化為銷售論述的技術架構優勢。</p>
+  </div>
+
+  <hr>
+
+  <!-- ====== Section 5: 整體戰略解讀 ====== -->
+  <h2><span class="num">05</span>整體戰略解讀</h2>
+
+  <p>
+    Anthropic 同步預告 Mythos 系列模型將在「未來數週內」更廣泛釋出。這意味著 Opus 4.8 的定位更像是<strong>銜接 Mythos 之前的過渡強化版</strong>——而非本世代的終點。
+  </p>
+
+  <p>
+    對採用 LiteLLM 作為 provider-agnostic 抽象層的架構而言，這個發布節奏（約 41 天迭代一次）正是「不鎖定單一提供者」策略正確性的再次驗證。保持路由彈性、持續追蹤每次發布的 benchmark 差異，才是在快速迭代時代維持系統競爭力的最佳做法。
+  </p>
+
+  <hr>
+
+  <!-- ====== FAQ ====== -->
+  <h2><span class="num">FAQ</span>常見問題</h2>
+
+  <div class="qa-section">
+
+    <div class="qa-item">
+      <div class="qa-q">Opus 4.8 跟 4.7 的價格有差嗎？</div>
+      <p class="qa-a">
+        Standard Mode 維持 $5 / $25 per MTok，沒有變。Fast Mode 則從前代的 $30 / $150 大幅降至 $10 / $50 per MTok，降幅為三分之一。
+      </p>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-q">Dynamic Workflows 現在可以用嗎？</div>
+      <p class="qa-a">
+        目前為 Research Preview，需要手動啟用。使用前請確認 Claude Code 版本已更新至支援版本。Orchestration script 本身不能直接存取 filesystem，需透過子代理執行讀寫操作。
+      </p>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-q">Opus 4.8 的安全性有改善嗎？</div>
+      <p class="qa-a">
+        在誠實度與自我糾錯方面有明顯改善。但 System Card 揭露 agentic prompt injection 攻擊成功率為 9.6%（4.7 為 6.0%），在安全敏感的 pipeline 中需格外注意。
+      </p>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-q">Mythos 系列什麼時候出？</div>
+      <p class="qa-a">
+        Anthropic 僅表示「未來數週內」更廣泛釋出，沒有公布精確日期。Opus 4.8 的定位是銜接 Mythos 之前的過渡強化版。
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Share -->
+  <div class="share-bar">
+    <span>分享文章：</span>
+    <a href="#" class="share-btn">𝕏 Twitter</a>
+    <a href="#" class="share-btn">Facebook</a>
+  </div>
+
+</article>
+
+<!-- ====== FOOTER ====== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-copy">© 2026 Dennis Huang. All rights reserved.</div>
+    <div class="footer-links">
+      <a href="#">GitHub</a>
+      <a href="#">LinkedIn</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
